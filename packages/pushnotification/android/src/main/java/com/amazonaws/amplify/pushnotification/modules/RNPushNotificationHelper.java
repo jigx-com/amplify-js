@@ -78,7 +78,8 @@ public class RNPushNotificationHelper {
         notificationIntent.putExtra(RNPushNotificationPublisher.NOTIFICATION_ID, notificationID);
         notificationIntent.putExtras(bundle);
 
-        return PendingIntent.getBroadcast(context, notificationID, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        // return PendingIntent.getBroadcast(context, notificationID, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        return PendingIntent.getBroadcast(context, notificationID, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
     }
 
     public void sendNotificationScheduled(Bundle bundle) {
@@ -254,8 +255,19 @@ public class RNPushNotificationHelper {
 
             notification.setStyle(new NotificationCompat.BigTextStyle().bigText(bigText));
 
-            Intent intent = new Intent(context, RNPushNotificationBroadcastReceiver.class);
+            // Intent intent = new Intent(context, RNPushNotificationBroadcastReceiver.class);
+            String deeplink = bundle.getString("pinpoint.deeplink");
+            Boolean hasDeeplink = deeplink != null;
+            // if pinpoint data has a deeplink, we use an ACTION_VIEW intent (https://developer.android.com/reference/android/content/Intent#ACTION_VIEW)
+            // using this type of Intent is what native android Linking.getInitialUrl expects (https://github.com/facebook/react-native/blob/v0.64.3/ReactAndroid/src/main/java/com/facebook/react/modules/intent/IntentModule.java#L59)
+            // this allows us to handle deep linking on cold push
+            Intent intent = hasDeeplink ? new Intent(Intent.ACTION_VIEW, Uri.parse(deeplink)) : context.getPackageManager().getLaunchIntentForPackage(packageName);
             intent.putExtra("notification", bundle);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            int notificationID = Integer.parseInt(notificationIdString);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationID, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            notification.setContentIntent(pendingIntent);
 
             Log.i(LOG_TAG, "sendNotification: " + intent);
 
@@ -311,14 +323,14 @@ public class RNPushNotificationHelper {
                 }
             }
 
-            int notificationID = Integer.parseInt(notificationIdString);
+            // int notificationID = Integer.parseInt(notificationIdString);
 
             // PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationID, intent,
             //         PendingIntent.FLAG_UPDATE_CURRENT);
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(context, notificationID, intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT);
+            // PendingIntent pendingIntent = PendingIntent.getBroadcast(context, notificationID, intent,
+            //            PendingIntent.FLAG_UPDATE_CURRENT);
 
-            notification.setContentIntent(pendingIntent);
+            // notification.setContentIntent(pendingIntent);
 
             if (!bundle.containsKey("vibrate") || bundle.getBoolean("vibrate")) {
                 long vibration = bundle.containsKey("vibration") ? (long) bundle.getDouble("vibration") : DEFAULT_VIBRATION;
@@ -354,7 +366,8 @@ public class RNPushNotificationHelper {
                     bundle.putString("action", action);
                     actionIntent.putExtra("notification", bundle);
                     PendingIntent pendingActionIntent = PendingIntent.getBroadcast(context, notificationID, actionIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT);
+                            PendingIntent.FLAG_IMMUTABLE);
+                    //        PendingIntent.FLAG_UPDATE_CURRENT);
                     notification.addAction(icon, action, pendingActionIntent);
                 }
             }
