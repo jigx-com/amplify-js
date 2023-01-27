@@ -7,6 +7,7 @@ packages/*/node_modules/**
 packages/**/lib/
 packages/**/lib-esm/
 packages/**/dist/
+!packages/pushnotification/lib/
 packages/**/es/
 packages/**/esm/
 packages/**/cjs/
